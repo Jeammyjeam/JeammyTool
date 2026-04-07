@@ -15,13 +15,17 @@ st.caption("Goal → Tasks → Execution → Result")
 
 EXAMPLES = [
     "Analyze GitHub repo: anthropics/anthropic-sdk-python",
+    "Deep audit repo: anthropics/anthropic-sdk-python",
     "Compare repos: anthropics/anthropic-sdk-python vs openai/openai-python",
     "Find the best Python repos for web scraping",
     "What's on Hacker News today?",
+    "What are people saying about AI agents on Reddit?",
     "Evaluate the npm package: express",
     "Evaluate the PyPI package: httpx",
+    "Scan all links on this site: https://docs.anthropic.com/en/home",
     "Research: what is the current state of open source LLM tooling?",
     "What's trending in AI agents right now?",
+    "Orchestrate a full research report on: LLM agent frameworks in 2025",
 ]
 
 st.markdown("**Try an example:**")
@@ -57,8 +61,14 @@ if run and command.strip():
     ICONS = {
         "github_fetch": "📦",
         "github_search": "🔍",
+        "github_issues": "🐛",
+        "github_releases": "🏷️",
+        "github_contributors": "👥",
         "web_fetch": "🌐",
+        "extract_links": "🔗",
         "hackernews": "🔶",
+        "reddit_fetch": "🟠",
+        "reddit_search": "🟠",
         "npm_fetch": "📦",
         "pypi_fetch": "🐍",
         "analyze": "🧠",
@@ -66,7 +76,12 @@ if run and command.strip():
     }
     for step in steps:
         icon = ICONS.get(step["type"], "▶")
-        st.markdown(f"{icon} **{step['id']}** ({step['type']}) — {step['description']}")
+        label = step["type"]
+        if step["type"] == "agent":
+            agent_name = step.get("agent", "?")
+            spawns = "spawns subagents" if agent_name in ("orchestrator", "repo_deep_scanner", "multi_site_scanner") else ""
+            label = f"agent({agent_name})" + (f" ⚡ {spawns}" if spawns else "")
+        st.markdown(f"{icon} **{step['id']}** `{label}` — {step['description']}")
 
     st.divider()
 
@@ -117,6 +132,10 @@ if run and command.strip():
             step_id = step["id"]
             st.markdown(f"**{step_id}** — {step['description']}")
             raw = results.get(step_id, "")
-            json_types = {"github_fetch", "github_search", "web_fetch", "hackernews", "npm_fetch", "pypi_fetch"}
+            json_types = {
+                "github_fetch", "github_search", "github_issues", "github_releases",
+                "github_contributors", "web_fetch", "extract_links", "hackernews",
+                "reddit_fetch", "reddit_search", "npm_fetch", "pypi_fetch",
+            }
             lang = "json" if step["type"] in json_types else "markdown"
             st.code(raw[:2000] + ("..." if len(raw) > 2000 else ""), language=lang)
