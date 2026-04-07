@@ -7,6 +7,10 @@ import json
 import anthropic
 from .tools.github import fetch_repo, search_repos
 from .tools.web import fetch_url
+from .tools.hackernews import fetch_top_stories
+from .tools.npm import fetch_package as npm_fetch_package
+from .tools.pypi import fetch_package as pypi_fetch_package
+from .agents.base import run_agent
 
 client = anthropic.Anthropic()
 
@@ -37,6 +41,30 @@ def execute_step(step: dict, context: dict) -> str:
         url = _resolve_input(step, context).strip()
         page_data = fetch_url(url)
         return json.dumps(page_data, indent=2)
+
+    elif step_type == "hackernews":
+        stories = fetch_top_stories()
+        return json.dumps(stories, indent=2)
+
+    elif step_type == "npm_fetch":
+        package = _resolve_input(step, context).strip()
+        data = npm_fetch_package(package)
+        return json.dumps(data, indent=2)
+
+    elif step_type == "pypi_fetch":
+        package = _resolve_input(step, context).strip()
+        data = pypi_fetch_package(package)
+        return json.dumps(data, indent=2)
+
+    elif step_type == "agent":
+        agent_name = step.get("agent", "researcher")
+        instruction = _resolve_input(step, context)
+        dep_context = ""
+        for dep_id in step.get("depends_on", []):
+            if dep_id in context:
+                dep_context += f"\n\n[Data from {dep_id}]:\n{context[dep_id][:3000]}"
+        full_prompt = f"{instruction}{dep_context}"
+        return run_agent(agent_name, full_prompt)
 
     elif step_type == "analyze":
         # Build context from dependency results
