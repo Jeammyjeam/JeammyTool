@@ -1,10 +1,12 @@
 """
 Executor: runs each step in the task plan.
-Dispatches to GitHub API or Claude based on step type.
+Dispatches to the right tool/agent based on step type.
+Results are cached where safe to avoid redundant API calls.
 """
 
 import json
 import anthropic
+from . import cache
 from .tools.github import fetch_repo, search_repos
 from .tools.github_extras import fetch_issues, fetch_releases, fetch_contributors
 from .tools.web import fetch_url
@@ -13,13 +15,16 @@ from .tools.hackernews import fetch_top_stories
 from .tools.reddit import fetch_subreddit, search_reddit
 from .tools.npm import fetch_package as npm_fetch_package
 from .tools.pypi import fetch_package as pypi_fetch_package
+from .tools.arxiv import search_papers
+from .tools.wikipedia import fetch_summary, search_wikipedia
+from .tools.devto import fetch_articles as devto_fetch_articles, search_articles as devto_search_articles
 from .agents.base import run_agent
 
 client = anthropic.Anthropic()
 
 
 def _resolve_input(step: dict, context: dict) -> str:
-    """Replace 'step_N.result' placeholders in input with actual results."""
+    """Replace step_N.result placeholders with actual results."""
     text = step.get("input", "")
     for step_id, result in context.items():
         text = text.replace(f"{step_id}.result", result)
@@ -29,84 +34,85 @@ def _resolve_input(step: dict, context: dict) -> str:
 def execute_step(step: dict, context: dict) -> str:
     """Execute a single step and return its result as a string."""
     step_type = step["type"]
+    raw_input = _resolve_input(step, context)
 
+    # Cache check
+    cached = cache.get(step_type, raw_input)
+    if cached is not None:
+        return cached
+
+    result = _dispatch(step_type, raw_input, step, context)
+
+    # Cache write
+    cache.set(step_type, raw_input, result)
+    return result
+
+
+def _dispatch(step_type: str, raw_input: str, step: dict, context: dict) -> str:
+    """Route step type to the correct tool/agent."""
+
+    # ── GitHub ──────────────────────────────────────────────────────────────
     if step_type == "github_fetch":
-        repo_path = step["input"].strip()
-        repo_data = fetch_repo(repo_path)
-        return json.dumps(repo_data, indent=2)
+        return json.dumps(fetch_repo(raw_input.strip()), indent=2)
 
     elif step_type == "github_search":
-        query = _resolve_input(step, context)
-        results = search_repos(query)
-        return json.dumps(results, indent=2)
-
-    elif step_type == "web_fetch":
-        url = _resolve_input(step, context).strip()
-        page_data = fetch_url(url)
-        return json.dumps(page_data, indent=2)
+        return json.dumps(search_repos(raw_input), indent=2)
 
     elif step_type == "github_issues":
-        repo_path = step["input"].strip()
-        data = fetch_issues(repo_path)
-        return json.dumps(data, indent=2)
+        return json.dumps(fetch_issues(raw_input.strip()), indent=2)
 
     elif step_type == "github_releases":
-        repo_path = step["input"].strip()
-        data = fetch_releases(repo_path)
-        return json.dumps(data, indent=2)
+        return json.dumps(fetch_releases(raw_input.strip()), indent=2)
 
     elif step_type == "github_contributors":
-        repo_path = step["input"].strip()
-        data = fetch_contributors(repo_path)
-        return json.dumps(data, indent=2)
+        return json.dumps(fetch_contributors(raw_input.strip()), indent=2)
+
+    # ── Web ─────────────────────────────────────────────────────────────────
+    elif step_type == "web_fetch":
+        return json.dumps(fetch_url(raw_input.strip()), indent=2)
 
     elif step_type == "extract_links":
-        url = _resolve_input(step, context).strip()
-        data = extract_links(url)
-        return json.dumps(data, indent=2)
+        return json.dumps(extract_links(raw_input.strip()), indent=2)
+
+    # ── News & Social ────────────────────────────────────────────────────────
+    elif step_type == "hackernews":
+        return json.dumps(fetch_top_stories(), indent=2)
 
     elif step_type == "reddit_fetch":
-        subreddit = _resolve_input(step, context).strip()
-        data = fetch_subreddit(subreddit)
-        return json.dumps(data, indent=2)
+        return json.dumps(fetch_subreddit(raw_input.strip()), indent=2)
 
     elif step_type == "reddit_search":
-        query = _resolve_input(step, context)
-        data = search_reddit(query)
-        return json.dumps(data, indent=2)
+        return json.dumps(search_reddit(raw_input), indent=2)
 
-    elif step_type == "hackernews":
-        stories = fetch_top_stories()
-        return json.dumps(stories, indent=2)
-
+    # ── Packages ─────────────────────────────────────────────────────────────
     elif step_type == "npm_fetch":
-        package = _resolve_input(step, context).strip()
-        data = npm_fetch_package(package)
-        return json.dumps(data, indent=2)
+        return json.dumps(npm_fetch_package(raw_input.strip()), indent=2)
 
     elif step_type == "pypi_fetch":
-        package = _resolve_input(step, context).strip()
-        data = pypi_fetch_package(package)
-        return json.dumps(data, indent=2)
+        return json.dumps(pypi_fetch_package(raw_input.strip()), indent=2)
 
-    elif step_type == "agent":
-        agent_name = step.get("agent", "researcher")
-        instruction = _resolve_input(step, context)
-        dep_context = ""
-        for dep_id in step.get("depends_on", []):
-            if dep_id in context:
-                dep_context += f"\n\n[Data from {dep_id}]:\n{context[dep_id][:3000]}"
-        full_prompt = f"{instruction}{dep_context}"
-        return run_agent(agent_name, full_prompt)
+    # ── Research & Knowledge ─────────────────────────────────────────────────
+    elif step_type == "arxiv_search":
+        return json.dumps(search_papers(raw_input), indent=2)
 
+    elif step_type == "wikipedia_fetch":
+        return json.dumps(fetch_summary(raw_input.strip()), indent=2)
+
+    elif step_type == "wikipedia_search":
+        return json.dumps(search_wikipedia(raw_input), indent=2)
+
+    elif step_type == "devto_fetch":
+        return json.dumps(devto_fetch_articles(raw_input.strip()), indent=2)
+
+    elif step_type == "devto_search":
+        return json.dumps(devto_search_articles(raw_input), indent=2)
+
+    # ── LLM ──────────────────────────────────────────────────────────────────
     elif step_type == "analyze":
-        # Build context from dependency results
         dep_context = ""
         for dep_id in step.get("depends_on", []):
             if dep_id in context:
                 dep_context += f"\n\n[{dep_id} result]:\n{context[dep_id]}"
-
-        instruction = _resolve_input(step, context)
 
         response = client.messages.create(
             model="claude-opus-4-6",
@@ -117,7 +123,7 @@ def execute_step(step: dict, context: dict) -> str:
                     "role": "user",
                     "content": (
                         f"Task: {step['description']}\n"
-                        f"Instruction: {instruction}"
+                        f"Instruction: {raw_input}"
                         f"{dep_context}"
                     ),
                 }
@@ -125,14 +131,22 @@ def execute_step(step: dict, context: dict) -> str:
         )
         return next(b.text for b in response.content if b.type == "text")
 
+    # ── Agents ───────────────────────────────────────────────────────────────
+    elif step_type == "agent":
+        agent_name = step.get("agent", "researcher")
+        dep_context = ""
+        for dep_id in step.get("depends_on", []):
+            if dep_id in context:
+                dep_context += f"\n\n[Data from {dep_id}]:\n{context[dep_id][:3000]}"
+        return run_agent(agent_name, f"{raw_input}{dep_context}")
+
     return f"[unknown step type: {step_type}]"
 
 
 def execute_pipeline(steps: list[dict], on_step_done=None) -> dict:
     """
     Execute all steps in dependency order.
-    Calls on_step_done(step, result) after each step if provided.
-    Returns dict of step_id -> result.
+    Calls on_step_done(step, result, from_cache) after each step if provided.
     """
     results: dict[str, str] = {}
     executed: set[str] = set()
@@ -141,18 +155,18 @@ def execute_pipeline(steps: list[dict], on_step_done=None) -> dict:
     while remaining:
         progress = False
         for step in list(remaining):
-            deps = step.get("depends_on", [])
-            if all(dep in executed for dep in deps):
+            if all(dep in executed for dep in step.get("depends_on", [])):
                 step_id = step["id"]
+                raw_input = step.get("input", "")
+                from_cache = cache.get(step["type"], raw_input) is not None
                 result = execute_step(step, results)
                 results[step_id] = result
                 executed.add(step_id)
                 remaining.remove(step)
                 if on_step_done:
-                    on_step_done(step, result)
+                    on_step_done(step, result, from_cache)
                 progress = True
         if not progress:
-            # Unresolvable dependency — skip remaining steps
             break
 
     return results
