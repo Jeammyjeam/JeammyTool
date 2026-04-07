@@ -15,8 +15,10 @@ st.caption("Goal → Tasks → Execution → Result")
 
 EXAMPLES = [
     "Analyze GitHub repo: anthropics/anthropic-sdk-python",
-    "Is this repo worth using? openai/openai-python",
-    "Evaluate the GitHub repo: facebook/react",
+    "Compare repos: anthropics/anthropic-sdk-python vs openai/openai-python",
+    "Find the best Python repos for web scraping",
+    "What's trending in AI on GitHub?",
+    "Analyze this URL: https://docs.anthropic.com/en/home",
 ]
 
 st.markdown("**Try an example:**")
@@ -49,9 +51,15 @@ if run and command.strip():
 
     # Show the plan
     st.markdown("### Task Plan")
+    ICONS = {
+        "github_fetch": "📦",
+        "github_search": "🔍",
+        "web_fetch": "🌐",
+        "analyze": "🧠",
+    }
     for step in steps:
-        icon = "🔍" if step["type"] == "github_fetch" else "🧠"
-        st.markdown(f"{icon} **{step['id']}** — {step['description']}")
+        icon = ICONS.get(step["type"], "▶")
+        st.markdown(f"{icon} **{step['id']}** ({step['type']}) — {step['description']}")
 
     st.divider()
 
@@ -102,4 +110,5 @@ if run and command.strip():
             step_id = step["id"]
             st.markdown(f"**{step_id}** — {step['description']}")
             raw = results.get(step_id, "")
-            st.code(raw[:2000] + ("..." if len(raw) > 2000 else ""), language="json" if step["type"] == "github_fetch" else "markdown")
+            lang = "json" if step["type"] in ("github_fetch", "github_search", "web_fetch") else "markdown"
+            st.code(raw[:2000] + ("..." if len(raw) > 2000 else ""), language=lang)
