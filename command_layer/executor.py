@@ -6,8 +6,11 @@ Dispatches to GitHub API or Claude based on step type.
 import json
 import anthropic
 from .tools.github import fetch_repo, search_repos
+from .tools.github_extras import fetch_issues, fetch_releases, fetch_contributors
 from .tools.web import fetch_url
+from .tools.links import extract_links
 from .tools.hackernews import fetch_top_stories
+from .tools.reddit import fetch_subreddit, search_reddit
 from .tools.npm import fetch_package as npm_fetch_package
 from .tools.pypi import fetch_package as pypi_fetch_package
 from .agents.base import run_agent
@@ -41,6 +44,36 @@ def execute_step(step: dict, context: dict) -> str:
         url = _resolve_input(step, context).strip()
         page_data = fetch_url(url)
         return json.dumps(page_data, indent=2)
+
+    elif step_type == "github_issues":
+        repo_path = step["input"].strip()
+        data = fetch_issues(repo_path)
+        return json.dumps(data, indent=2)
+
+    elif step_type == "github_releases":
+        repo_path = step["input"].strip()
+        data = fetch_releases(repo_path)
+        return json.dumps(data, indent=2)
+
+    elif step_type == "github_contributors":
+        repo_path = step["input"].strip()
+        data = fetch_contributors(repo_path)
+        return json.dumps(data, indent=2)
+
+    elif step_type == "extract_links":
+        url = _resolve_input(step, context).strip()
+        data = extract_links(url)
+        return json.dumps(data, indent=2)
+
+    elif step_type == "reddit_fetch":
+        subreddit = _resolve_input(step, context).strip()
+        data = fetch_subreddit(subreddit)
+        return json.dumps(data, indent=2)
+
+    elif step_type == "reddit_search":
+        query = _resolve_input(step, context)
+        data = search_reddit(query)
+        return json.dumps(data, indent=2)
 
     elif step_type == "hackernews":
         stories = fetch_top_stories()
