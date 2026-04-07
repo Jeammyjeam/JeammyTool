@@ -4,6 +4,7 @@ import requests
 GITHUB_API = "https://api.github.com"
 HEADERS = {"Accept": "application/vnd.github.v3+json"}
 README_LIMIT = 4000  # chars
+SEARCH_LIMIT = 10    # max repos returned from search
 
 
 def fetch_repo(repo_path: str) -> dict:
@@ -43,3 +44,31 @@ def fetch_repo(repo_path: str) -> dict:
         "default_branch": data.get("default_branch"),
         "readme": readme_content,
     }
+
+
+def search_repos(query: str, sort: str = "stars", limit: int = SEARCH_LIMIT) -> list[dict]:
+    """Search GitHub repositories and return key metadata for each."""
+    params = {
+        "q": query,
+        "sort": sort,
+        "order": "desc",
+        "per_page": min(limit, 10),
+    }
+    resp = requests.get(f"{GITHUB_API}/search/repositories", headers=HEADERS, params=params, timeout=10)
+    resp.raise_for_status()
+    items = resp.json().get("items", [])
+
+    return [
+        {
+            "full_name": r.get("full_name"),
+            "description": r.get("description"),
+            "stars": r.get("stargazers_count"),
+            "forks": r.get("forks_count"),
+            "language": r.get("language"),
+            "topics": r.get("topics", []),
+            "last_push": r.get("pushed_at"),
+            "archived": r.get("archived", False),
+            "url": r.get("html_url"),
+        }
+        for r in items
+    ]

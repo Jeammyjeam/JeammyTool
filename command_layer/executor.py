@@ -5,7 +5,8 @@ Dispatches to GitHub API or Claude based on step type.
 
 import json
 import anthropic
-from .tools.github import fetch_repo
+from .tools.github import fetch_repo, search_repos
+from .tools.web import fetch_url
 
 client = anthropic.Anthropic()
 
@@ -26,6 +27,16 @@ def execute_step(step: dict, context: dict) -> str:
         repo_path = step["input"].strip()
         repo_data = fetch_repo(repo_path)
         return json.dumps(repo_data, indent=2)
+
+    elif step_type == "github_search":
+        query = _resolve_input(step, context)
+        results = search_repos(query)
+        return json.dumps(results, indent=2)
+
+    elif step_type == "web_fetch":
+        url = _resolve_input(step, context).strip()
+        page_data = fetch_url(url)
+        return json.dumps(page_data, indent=2)
 
     elif step_type == "analyze":
         # Build context from dependency results
