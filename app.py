@@ -17,8 +17,11 @@ EXAMPLES = [
     "Analyze GitHub repo: anthropics/anthropic-sdk-python",
     "Compare repos: anthropics/anthropic-sdk-python vs openai/openai-python",
     "Find the best Python repos for web scraping",
-    "What's trending in AI on GitHub?",
-    "Analyze this URL: https://docs.anthropic.com/en/home",
+    "What's on Hacker News today?",
+    "Evaluate the npm package: express",
+    "Evaluate the PyPI package: httpx",
+    "Research: what is the current state of open source LLM tooling?",
+    "What's trending in AI agents right now?",
 ]
 
 st.markdown("**Try an example:**")
@@ -55,7 +58,11 @@ if run and command.strip():
         "github_fetch": "📦",
         "github_search": "🔍",
         "web_fetch": "🌐",
+        "hackernews": "🔶",
+        "npm_fetch": "📦",
+        "pypi_fetch": "🐍",
         "analyze": "🧠",
+        "agent": "🤖",
     }
     for step in steps:
         icon = ICONS.get(step["type"], "▶")
@@ -110,5 +117,6 @@ if run and command.strip():
             step_id = step["id"]
             st.markdown(f"**{step_id}** — {step['description']}")
             raw = results.get(step_id, "")
-            lang = "json" if step["type"] in ("github_fetch", "github_search", "web_fetch") else "markdown"
+            json_types = {"github_fetch", "github_search", "web_fetch", "hackernews", "npm_fetch", "pypi_fetch"}
+            lang = "json" if step["type"] in json_types else "markdown"
             st.code(raw[:2000] + ("..." if len(raw) > 2000 else ""), language=lang)
