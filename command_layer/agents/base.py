@@ -81,6 +81,29 @@ _AGENTS: dict[str, dict] = {
         "max_turns": 6,
         "subagents": None,
     },
+    "advisor": {
+        "description": "Gives concrete, actionable recommendations based on the data provided",
+        "system_prompt": (
+            "You are a strategic advisor. Given data, findings, or a situation, produce "
+            "clear, ranked, actionable recommendations. Be direct. No fluff. "
+            "Format as: immediate actions, medium-term steps, things to avoid."
+        ),
+        "allowed_tools": ["WebSearch", "WebFetch"],
+        "max_turns": 6,
+        "subagents": None,
+    },
+    "debate": {
+        "description": "Argues both sides of a topic for a balanced view",
+        "system_prompt": (
+            "You are a balanced debate analyst. For the given topic, present: "
+            "1) The strongest case FOR it with evidence, "
+            "2) The strongest case AGAINST it with evidence, "
+            "3) A nuanced verdict. Use web search to find real arguments and data."
+        ),
+        "allowed_tools": ["WebSearch", "WebFetch"],
+        "max_turns": 8,
+        "subagents": None,
+    },
     # ── Orchestrators: agents that spawn subagents ──────────────────────────
     "orchestrator": {
         "description": "Master orchestrator — decomposes complex tasks and spawns specialized subagents",
