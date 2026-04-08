@@ -70,11 +70,17 @@ Orchestrate a full research report on: LLM agent frameworks in 2025
 
 ## Run it
 
+**Local (Streamlit UI):**
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 export ANTHROPIC_API_KEY=your_key_here
 streamlit run app.py
 ```
+
+**Vercel (REST API + web UI):**
+Deploy this repo on Vercel — it auto-detects `api/index.py` and `vercel.json`.
+Set `ANTHROPIC_API_KEY` in your Vercel environment variables.
+The web UI is served at `/`, API endpoint at `POST /execute`.
 
 ---
 

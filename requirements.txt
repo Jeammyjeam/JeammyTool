@@ -1,7 +1,6 @@
 anthropic
 claude-agent-sdk
 anyio
-streamlit
 requests
 fastapi
 uvicorn[standard]
